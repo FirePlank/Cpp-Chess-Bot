@@ -13032,6 +13032,7 @@ int rook_value = 500;
 int queen_value = 900;
 int king_value = 20000;
 bool FIRST_END = true;
+int THE_DEPTH = 5;
 
 int KNIGHT_SQUARE_EVAL[64] = {
     -50, -30, -30, -30, -30, -30, -30, -50,
@@ -13124,9 +13125,9 @@ vector<int> find(string sample, char findIt)
 }
 
 int evaluation(thc::ChessRules &cr, bool maximazing_white) {
-    // if (cr.IsDraw(maximazing_white, DRAWTYPE = true)) {
-    //     return 0;
-    // }
+    if (cr.GetRepetitionCount() >= 3) {
+        return 0;
+    }
     int white_score = 0;
     int black_score = 0;
     int pieces = 0;
@@ -13237,7 +13238,7 @@ int negamax(thc::ChessRules &cr, std::deque<std::__cxx11::basic_string<char>> va
     for (unsigned int i = 0; i < size; i++) {
         thc::ChessRules cr2;
         cr2 = cr;
-        int score = 0;
+        int score = -99999999;
         string move = valid_moves[i];
         mv.TerseIn( &cr2, move.c_str());
         cr2.PlayMove(mv);
@@ -13251,17 +13252,21 @@ int negamax(thc::ChessRules &cr, std::deque<std::__cxx11::basic_string<char>> va
         for( unsigned int i=0; i<len; i++ ) {
             if (mate[i]) {
                 if (origin_max == cr2.WhiteToPlay()) {
-                    score = 999999999-depth;
+                    score = 999999998-depth;
                 } else {
                     score = -999999999;
                 }
+                break;
+            } else if (stalemate[i]) {
+                score = 0;
+                break;
             } else if (check[i] || mv.capture != ' ') {
                 all_moves.push_front(next_moves[i].TerseOut().c_str());
             } else {
                 all_moves.push_back(next_moves[i].TerseOut().c_str());
             }
         }
-        if (score != 999999999) {
+        if (score == -99999999) {
             score = -negamax(cr2, all_moves, len, depth-1, -beta, -alpha, cr2.WhiteToPlay(), DEPTH, origin_max);
         }
         if (score > max_score) {
@@ -13281,6 +13286,79 @@ int negamax(thc::ChessRules &cr, std::deque<std::__cxx11::basic_string<char>> va
     return max_score;
 }
 
+// string* minimax(thc::ChessRules &cr, int depth, int alpha, int beta, bool maximizing_player, bool maximizing_color) {
+//     if (depth == 0) {
+//         int eval = evaluation(cr, maximizing_color);
+//         return {" ", std::to_string(eval)};
+//     }
+//     vector<thc::Move> next_moves;
+//     vector<bool> check;
+//     vector<bool> mate;
+//     vector<bool> stalemate;
+//     cr.GenLegalMoveList(  next_moves, check, mate, stalemate );
+//     unsigned int len = next_moves.size();
+//     std::deque<string> all_moves;
+//     for( unsigned int i=0; i<len; i++ ) {
+//         if (mate[i]) {
+//             if (origin_max == cr2.WhiteToPlay()) {
+//                 score = 999999998-depth;
+//             } else {
+//                 score = -999999999;
+//             }
+//             break;
+//         } else if (stalemate[i]) {
+//             score = 0;
+//             break;
+//         } else if (check[i] || mv.capture != ' ') {
+//             all_moves.push_front(next_moves[i].TerseOut().c_str());
+//         } else {
+//             all_moves.push_back(next_moves[i].TerseOut().c_str());
+//         }
+//     }
+//     if (maximizing_player) {
+//         max_eval = -99999999;
+//         for (unsigned int i=0; i<len; i++) {
+//             thc::ChessRules cr2;
+//             cr2 = cr;
+//             string move = valid_moves[i];
+//             mv.TerseIn( &cr2, move.c_str());
+//             cr2.PlayMove(mv);
+//             current_eval = minimax(cr2, depth-1, alpha, beta, false, maximizing_color)[1] - '0';
+//             if (current_eval > max_eval) {
+//                 max_eval = current_eval;
+//                 best_move = move.c_str();
+//             }
+//             if (current_eval > alpha) {
+//                 alpha = current_eval;
+//             }
+//             if (beta <= alpha) {
+//                 break;
+//             }     
+//         }
+//         return {best_move, std::to_string(max_eval)};
+//     } else {
+//         min_eval = 99999999;
+//         for (unsigned int i=0; i<len; i++) {
+//             thc::ChessRules cr2;
+//             cr2 = cr;
+//             string move = valid_moves[i];
+//             mv.TerseIn( &cr2, move.c_str());
+//             cr2.PlayMove(mv);
+//             current_eval = minimax(cr2, depth-1, alpha, beta, true, maximizing_color)[1] - '0';
+//             if (current_eval < min_eval) {
+//                 min_eval = current_eval;
+//                 best_move = move.c_str();
+//             }
+//             if (current_eval > alpha) {
+//                 beta = current_eval;
+//             }
+//             if (beta <= alpha) {
+//                 break;
+//             }
+//         }
+//         return {best_move, std::to_string(min_eval)};
+// }
+
 string find_best_move(thc::ChessRules &cr) {
     vector<thc::Move> next_moves;
     vector<bool> check;
@@ -13299,7 +13377,7 @@ string find_best_move(thc::ChessRules &cr) {
             all_moves.push_back(next_moves[i].TerseOut().c_str());
         }
     }
-    negamax(cr, all_moves, len, 5, -999999999, 999999999, cr.WhiteToPlay(), 5, cr.WhiteToPlay());
+    negamax(cr, all_moves, len, THE_DEPTH, -999999998, 999999999, cr.WhiteToPlay(), THE_DEPTH, cr.WhiteToPlay());
     return next_move;
 
 }
@@ -13330,6 +13408,8 @@ int main() {
                 cr.PlayMove(mv);
             }
         } else if (input.rfind("go", 0) == 0) {
+            // THE_DEPTH = input[9] - '0';
+
             string toPlay = find_best_move(cr);
             cout << "bestmove " << toPlay << endl;
         } else {
